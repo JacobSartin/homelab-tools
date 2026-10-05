@@ -1,0 +1,37 @@
+{
+  "name": "@jacobsartin/homelab-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared app-template YAML formatting for homelab repositories",
+  "bin": {
+    "homelab-format-values": "dist/bin/format-values.js"
+  },
+  "files": [
+    "dist",
+    "oxfmt.config.json"
+  ],
+  "type": "module",
+  "exports": {
+    "./eslint": "./dist/lib/values-config.js",
+    "./oxfmt": "./oxfmt.config.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "eslint": "10.11.0",
+    "eslint-plugin-yml": "3.8.1",
+    "oxfmt": "0.71.0"
+  },
+  "devDependencies": {
+    "@eslint/core": "1.2.1",
+    "@types/node": "24.10.13",
+    "typescript": "5.9.3",
+    "yaml-eslint-parser": "2.1.0"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
