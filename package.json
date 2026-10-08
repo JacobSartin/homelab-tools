@@ -23,9 +23,9 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "eslint": "10.11.0",
+    "eslint": "10.12.0",
     "eslint-plugin-yml": "3.8.1",
-    "oxfmt": "0.71.0",
+    "oxfmt": "0.72.0",
     "yaml": "2.9.1"
   },
   "devDependencies": {
