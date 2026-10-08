@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import yml from "eslint-plugin-yml";
 import type { RuleDefinition } from "@eslint/core";
 import type { Linter } from "eslint";
@@ -28,6 +28,12 @@ function keyValue(key: AST.YAMLNode | null): string | undefined {
 
 // Only opt in files that identify the bjw-s app-template schema.
 // New chart versions are discovered automatically; other charts remain untouched.
+export function isAppTemplateValues(text: string): boolean {
+  return /^#\s*yaml-language-server:\s*\$schema=.*bjw-s(?:-labs)?\/helm-charts\/app-template[^\r\n]*\/values\.schema\.json/m.test(
+    text,
+  );
+}
+
 export function appTemplateFiles(dir: string, prefix = ""): string[] {
   return readdirSync(dir, { withFileTypes: true })
     .flatMap((entry) => {
@@ -35,14 +41,28 @@ export function appTemplateFiles(dir: string, prefix = ""): string[] {
       const relative = prefix + entry.name;
       if (entry.isDirectory()) return appTemplateFiles(join(dir, entry.name), relative + "/");
       if (!entry.isFile() || entry.name !== "values.yaml") return [];
-      const text = readFileSync(join(dir, entry.name), "utf8");
-      return /^#\s*yaml-language-server:\s*\$schema=.*bjw-s(?:-labs)?\/helm-charts\/app-template[^\r\n]*\/values\.schema\.json/m.test(
-        text,
-      )
-        ? [relative]
-        : [];
+      return isAppTemplateValues(readFileSync(join(dir, entry.name), "utf8")) ? [relative] : [];
     })
     .sort();
+}
+
+// Narrow explicit paths (absolute or relative to root) to app-template values files,
+// so hooks can pass every staged file without knowing which ones opt in.
+export function selectAppTemplateFiles(root: string, paths: string[]): string[] {
+  return [
+    ...new Set(
+      paths
+        .map((path) => relative(root, resolve(root, path)).replaceAll("\\", "/"))
+        .filter(
+          (path) =>
+            basename(path) === "values.yaml" &&
+            !path.startsWith("../") &&
+            !isAbsolute(path) &&
+            existsSync(join(root, path)) &&
+            isAppTemplateValues(readFileSync(join(root, path), "utf8")),
+        ),
+    ),
+  ].sort();
 }
 
 const alphabetic = { keyPattern: ".*", order: { type: "asc", natural: true } };

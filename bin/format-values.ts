@@ -5,13 +5,20 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { openSync, closeSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { appTemplateFiles, createValuesConfig } from "../lib/values-config.ts";
+import {
+  appTemplateFiles,
+  createValuesConfig,
+  selectAppTemplateFiles,
+} from "../lib/values-config.ts";
 const root = process.cwd();
 
-const check = process.argv.includes("--check");
-const files = appTemplateFiles(root);
+const args = process.argv.slice(2);
+const check = args.includes("--check");
+// Explicit paths (e.g. staged files from a Git hook) limit the run to those files.
+const paths = args.filter((arg) => !arg.startsWith("--"));
+const files = paths.length ? selectAppTemplateFiles(root, paths) : appTemplateFiles(root);
 if (!files.length) {
-  console.log("No bjw-s app-template values files found.");
+  if (!paths.length) console.log("No bjw-s app-template values files found.");
   process.exit(0);
 }
 const eslint = new ESLint({
