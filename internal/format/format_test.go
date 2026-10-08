@@ -4,12 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/JacobSartin/homelab-tools/internal/profiles"
 	"github.com/JacobSartin/homelab-tools/internal/rules"
+	"github.com/JacobSartin/homelab-tools/internal/yamltext"
 )
 
 // Each testdata/<name>.in.yaml must format to testdata/<name>.out.yaml, and
@@ -54,7 +57,7 @@ func format(t *testing.T, path, text string) string {
 }
 
 func with(set ...rules.Rule) RulesFor {
-	return func(string, *yaml.Node) []rules.Rule { return set }
+	return func(*yaml.Node) []rules.Rule { return set }
 }
 
 func TestRules(t *testing.T) {
@@ -90,15 +93,15 @@ func TestRules(t *testing.T) {
 		{
 			name: "spacing and blank-after rules",
 			rules: []rules.Rule{
-				{Path: "m", Spacing: rules.None, BlankAfter: []string{"b"}},
-				{Path: "n", Spacing: rules.All},
+				{Path: "m", Spacing: rules.Compact, BlankAfter: []string{"b"}},
+				{Path: "n", Spacing: rules.Separate},
 			},
 			in:   "m:\n  a: 1\n\n  b: 2\n  c: 3\nn:\n  x: 1\n  y: 2\n",
 			want: "m:\n  a: 1\n  b: 2\n\n  c: 3\nn:\n  x: 1\n\n  y: 2\n",
 		},
 		{
 			name:  "flow mappings are left alone",
-			rules: []rules.Rule{{Path: "f", SortRest: true, Spacing: rules.All}},
+			rules: []rules.Rule{{Path: "f", SortRest: true, Spacing: rules.Separate}},
 			in:    "f: { b: 1, a: 2 }\n",
 			want:  "f: { b: 1, a: 2 }\n",
 		},
@@ -148,5 +151,79 @@ func TestSOPSFilesAreNeverRewritten(t *testing.T) {
 func TestInvalidYAMLIsAnError(t *testing.T) {
 	if _, err := Format("x.yaml", "a: [\n"); err == nil {
 		t.Error("expected an error")
+	}
+}
+
+// Every template must already follow its own rules, and must be restored
+// after every mapping in it is reversed.
+func TestTemplatesFormatToThemselves(t *testing.T) {
+	for _, tmpl := range profiles.Default.Templates() {
+		t.Run(tmpl.Name, func(t *testing.T) {
+			if got := format(t, tmpl.Name, tmpl.Text); got != tmpl.Text {
+				t.Errorf("template is not in its own order:\n%s", got)
+			}
+			shuffled := reverseMappings(t, tmpl.Text)
+			if shuffled == tmpl.Text {
+				t.Fatal("reversing changed nothing")
+			}
+			if got := format(t, tmpl.Name, shuffled); got != tmpl.Text {
+				t.Errorf("shuffled template formats to:\n%s", got)
+			}
+		})
+	}
+}
+
+// reverseMappings reverses the entries of every block mapping in text.
+func reverseMappings(t *testing.T, text string) string {
+	t.Helper()
+	done := map[string]bool{}
+	for {
+		docs, err := parse(text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lines := strings.Split(text, "\n")
+		changed := false
+		for d, doc := range docs {
+			changed = walk(doc.Content[0], nil, func(node *yaml.Node, path []string) bool {
+				id := strconv.Itoa(d) + ":" + strings.Join(path, ".")
+				if done[id] {
+					return false
+				}
+				done[id] = true
+				m, ok := yamltext.Layout(lines, node, node == doc.Content[0])
+				if !ok {
+					return false
+				}
+				keys := m.Keys()
+				slices.Reverse(keys)
+				text = strings.Join(m.Replace(lines, m.Render(lines, keys, m.Gaps(lines))), "\n")
+				return true
+			})
+			if changed {
+				break
+			}
+		}
+		if !changed {
+			return text
+		}
+	}
+}
+
+func TestExplain(t *testing.T) {
+	in := "apiVersion: helm.toolkit.fluxcd.io/v2\nkind: HelmRelease\nmetadata:\n  name: x\n" +
+		"---\nfoo: bar\n"
+	got, err := Explain("x.yaml", in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"x.yaml, document 1: template helm-release.yaml extends kubernetes.yaml\n",
+		"  metadata: order name, generateName, namespace, labels, annotations (helm-release.yaml:",
+		"x.yaml, document 2: no template matches; left as is\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
 	}
 }

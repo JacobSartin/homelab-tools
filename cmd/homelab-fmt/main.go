@@ -17,10 +17,13 @@ import (
 var version = "dev"
 
 const usage = `Usage: homelab-fmt [--check] [path...]
+       homelab-fmt explain path...
 
 Orders keys and blank lines in app-template values and Kubernetes manifests.
 Without paths, formats every YAML file Git does not ignore. Paths that are not
 YAML files are skipped. Layout is left to oxfmt.
+
+explain prints the template each document matches and the rule for each mapping.
 
 `
 
@@ -29,6 +32,9 @@ func main() {
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "explain" {
+		return explain(args[1:], stdout, stderr)
+	}
 	flags := flag.NewFlagSet("homelab-fmt", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.Usage = func() {
@@ -103,6 +109,30 @@ func run(args []string, stdout, stderr io.Writer) int {
 			verb = "Checked"
 		}
 		fmt.Fprintf(stdout, "%s %d files; %d changed.\n", verb, len(targets), changed)
+	}
+	if failed {
+		return 1
+	}
+	return 0
+}
+
+func explain(paths []string, stdout, stderr io.Writer) int {
+	if len(paths) == 0 {
+		fmt.Fprint(stderr, usage)
+		return 2
+	}
+	failed := false
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			var text string
+			if text, err = format.Explain(filepath.ToSlash(path), string(data)); err == nil {
+				fmt.Fprint(stdout, text)
+				continue
+			}
+		}
+		fmt.Fprintf(stderr, "%s: %v\n", path, err)
+		failed = true
 	}
 	if failed {
 		return 1

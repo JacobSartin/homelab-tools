@@ -15,9 +15,6 @@ func TestMatch(t *testing.T) {
 		{"", []string{"a"}, false},
 		{"a.*.c", []string{"a", "b", "c"}, true},
 		{"a.*.c", []string{"a", "c"}, false},
-		{"**.labels", []string{"labels"}, true},
-		{"**.labels", []string{"a", "0", "labels"}, true},
-		{"**.labels", []string{"labels", "x"}, false},
 	} {
 		if got := Match(tc.pattern, tc.path); got != tc.want {
 			t.Errorf("Match(%q, %q) = %v", tc.pattern, tc.path, got)

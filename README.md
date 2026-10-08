@@ -5,10 +5,16 @@ consistent key order and blank-line layout. It is a single static binary with
 no runtime. Indentation, wrapping and quoting are left to
 [oxfmt](https://oxc.rs/docs/guide/usage/formatter) in the editor.
 
-| Profile | Selected by | Rules |
-| --- | --- | --- |
-| app-template values | the bjw-s app-template `$schema` modeline | [`internal/profiles/apptemplate.go`](internal/profiles/apptemplate.go) |
-| Kubernetes objects | `apiVersion` and `kind` | [`internal/profiles/kubernetes.go`](internal/profiles/kubernetes.go): top-level fields and `metadata` for every kind, plus Flux `HelmRelease`, Flux `Kustomization` and kustomize `Kustomization`/`Component` |
+The order comes from [templates](internal/profiles/templates): example
+documents laid out the way formatted files should look.
+
+| Template | Formats |
+| --- | --- |
+| [`app-template.yaml`](internal/profiles/templates/app-template.yaml) | bjw-s app-template values |
+| [`kubernetes.yaml`](internal/profiles/templates/kubernetes.yaml) | top-level fields and `metadata` of every Kubernetes object |
+| [`helm-release.yaml`](internal/profiles/templates/helm-release.yaml) | Flux `HelmRelease` |
+| [`flux-kustomization.yaml`](internal/profiles/templates/flux-kustomization.yaml) | Flux `Kustomization` |
+| [`kustomization.yaml`](internal/profiles/templates/kustomization.yaml), [`kustomize-component.yaml`](internal/profiles/templates/kustomize-component.yaml) | kustomize `Kustomization` and `Component` |
 
 How it edits:
 
@@ -17,7 +23,6 @@ How it edits:
 - Comments directly above a key move with it; blank lines and detached
   comments stay where they were. The comment at the top of a document (such
   as the schema modeline) stays on top.
-- Keys a profile does not list keep their relative order after the listed ones.
 - SOPS files (`*.sops.*`, or a top-level `sops:` key) are never touched.
 - A mapping stays unsorted, with a warning, when sorting would move a YAML
   alias above its anchor.
@@ -27,10 +32,48 @@ How it edits:
 ## Usage
 
 ```sh
-homelab-fmt              # format every YAML file Git does not ignore
-homelab-fmt --check      # list files that need formatting; exit 1 if any
-homelab-fmt a.yaml b.md  # format only these; non-YAML paths are skipped
+homelab-fmt                      # format every YAML file Git does not ignore
+homelab-fmt --check              # list files that need formatting; exit 1 if any
+homelab-fmt a.yaml b.md          # format only these; non-YAML paths are skipped
+homelab-fmt explain a.yaml       # show the template and rule for each mapping
 ```
+
+## Templates
+
+A template is one YAML document. Its values are placeholders; only its keys,
+blank lines and `homelab-fmt` comments matter.
+
+- **Order.** Keys are ordered as in the template. Keys it does not list keep
+  their relative order after the listed ones.
+- **Wildcards.** A `"*"` key stands for any key, such as each controller under
+  `controllers`. A named key next to it wins for that name. A sequence's first
+  item stands for every item. Put `"*"` last in its mapping.
+- **Blank lines.** A blank line between two keys requires a blank line after
+  the first one. A missing blank line requires nothing.
+- **Directives** go in a comment on a key's line and apply to the mapping
+  under that key:
+  - `# homelab-fmt: sort` sorts the keys the template does not list.
+  - `# homelab-fmt: compact` removes blank lines between the entries.
+  - `# homelab-fmt: separate` requires a blank line between the entries.
+
+  Several directives can share a comment, separated by commas.
+
+Header comments, above the first key, select documents and layer templates:
+
+- `# homelab-fmt: schema <glob>` matches documents whose
+  `yaml-language-server` `$schema` URL matches the glob, where `*` matches
+  anything.
+- Without `schema`, the template's `apiVersion` group and `kind` select
+  documents. The version is ignored, and `"*"` matches any value.
+- Each document uses the single most specific template: `schema`, then group
+  and kind, then templates with wildcards.
+- `# homelab-fmt: extends <template>` adds another template's rules. For a
+  mapping both describe, the child's keys come first, followed by the parent's
+  keys the child does not list.
+
+To change the order, edit the template. To support a new kind, add a template,
+usually extending `kubernetes.yaml`. Tests check that every template formats
+to itself and is restored after its mappings are shuffled.
 
 ## Installing in a consumer repository
 
@@ -57,16 +100,15 @@ extension. VS Code must see mise's shims on `PATH`.
 ## Layout
 
 - [`cmd/homelab-fmt`](cmd/homelab-fmt): command-line interface.
-- [`internal/format`](internal/format): `Format(path, text)`; `mapping.go` maps
-  a block mapping to line ranges and re-renders it.
-- [`internal/rules`](internal/rules): the rule model (key path, `Order`,
-  `SortRest`, `Spacing`, `BlankAfter`), path matching and natural sort.
-- [`internal/profiles`](internal/profiles): which rules apply to which document.
+- [`internal/profiles`](internal/profiles): loads the embedded templates,
+  compiles them to rules and picks one per document.
+- [`internal/format`](internal/format): `Format` and `Explain`; fixture pairs
+  in `testdata/<name>.in.yaml` / `<name>.out.yaml`.
+- [`internal/rules`](internal/rules): the rule model (path, order, spacing),
+  path matching and natural sort.
+- [`internal/yamltext`](internal/yamltext): block mappings as line ranges.
 - [`internal/files`](internal/files): discovery through `git ls-files` and
   explicit-path selection.
-
-To support another document type, add its rules to a profile and a fixture
-pair `internal/format/testdata/<name>.in.yaml` / `<name>.out.yaml`.
 
 ## Development
 

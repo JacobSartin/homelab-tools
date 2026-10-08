@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-4.4.0/charts/other/app-template/values.schema.json
+# homelab-fmt: schema */bjw-s*/helm-charts/app-template*/values.schema.json
+# Key order for bjw-s app-template values. Values are placeholders.
+global: {}
+defaultPodOptions: {}
+controllers:
+  "*":
+    enabled: true
+    type: deployment
+    forceRename: app
+    annotations: {}
+    labels: {}
+    replicas: 1
+    strategy: RollingUpdate
+    rollingUpdate: {}
+    podDisruptionBudget: {}
+    revisionHistoryLimit: 3
+    pod:
+      annotations: {}
+      labels: {}
+      serviceAccountName: app
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+    initContainers: {}
+    containers:
+      "*":
+        image: # homelab-fmt: compact
+          repository: ghcr.io/example/app
+          tag: 1.0.0
+          pullPolicy: IfNotPresent
+
+        command: []
+        args: []
+        env: {}
+        envFrom: []
+        ports: []
+        probes: # homelab-fmt: compact
+          startup: {}
+          readiness: {}
+          liveness: {}
+          "*":
+            enabled: true
+            custom: true
+            spec: {}
+
+        securityContext: {}
+        resources:
+          requests: {}
+          limits: {}
+service:
+  "*": # homelab-fmt: compact
+    enabled: true
+    forceRename: app
+    controller: app
+    type: ClusterIP
+    loadBalancerIP: 192.0.2.10
+    loadBalancerClass: example
+    loadBalancerSourceRanges: []
+    allocateLoadBalancerNodePorts: false
+    externalTrafficPolicy: Local
+    annotations: {}
+    labels: {}
+    ports: {}
+ingress: {}
+route: {}
+persistence: # homelab-fmt: separate
+  "*": # homelab-fmt: compact
+    enabled: true
+    type: persistentVolumeClaim
+    identifier: app
+    name: app
+    existingClaim: app
+    storageClass: example
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    retain: true
+    hostPath: /data
+    server: nas.example
+    path: /data
+    medium: Memory
+    sizeLimit: 1Gi
+    globalMounts: []
+    advancedMounts: {}
+
+configMaps: {}
+secrets: {}
+serviceAccount: {}
+rbac: {}
+rawResources: {}
