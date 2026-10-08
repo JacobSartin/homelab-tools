@@ -70,7 +70,19 @@ func TestRules(t *testing.T) {
 			name:  "listed keys first, rest kept",
 			rules: []rules.Rule{{Path: "", Order: []string{"a"}}},
 			in:    "z: 1\nb: 2\na: 3\n",
-			want:  "a: 3\nz: 1\nb: 2\n",
+			want:  "a: 3\n\nz: 1\nb: 2\n",
+		},
+		{
+			name:  "unlisted keys are separated from listed ones, also when sorted",
+			rules: []rules.Rule{{Path: "m", Order: []string{"a", "b"}, SortRest: true}},
+			in:    "m:\n  y: 1\n  b: 2\n  x: 3\n  a: 4\nn: 5\n",
+			want:  "m:\n  a: 4\n  b: 2\n\n  x: 3\n  y: 1\nn: 5\n",
+		},
+		{
+			name:  "compact wins over the separator",
+			rules: []rules.Rule{{Path: "", Order: []string{"a"}, Spacing: rules.Compact}},
+			in:    "z: 1\n\na: 2\n",
+			want:  "a: 2\nz: 1\n",
 		},
 		{
 			name:  "comments move with their key, blank lines stay",

@@ -199,8 +199,16 @@ func fix(lines []string, node *yaml.Node, path []string, rule rules.Rule, top, b
 		}
 	}
 	spaced := slices.Clone(gaps)
+	listed := func(key string) bool { return slices.Contains(rule.Order, key) }
+	// Keys the rule does not list follow the listed ones after a blank line.
+	boundary := slices.IndexFunc(keys, func(key string) bool { return !listed(key) })
+	if boundary <= 0 || slices.ContainsFunc(keys[boundary:], listed) {
+		boundary = -1
+	}
 	for i := 1; i < len(keys); i++ {
 		blank := slices.ContainsFunc(spaced[i], yamltext.IsBlank)
+		// Blank lines drawn in the template win over compact, and compact
+		// wins over the separator before unlisted keys.
 		switch {
 		case slices.Contains(rule.BlankAfter, keys[i-1]) || rule.Spacing == rules.Separate:
 			if !blank {
@@ -208,6 +216,8 @@ func fix(lines []string, node *yaml.Node, path []string, rule rules.Rule, top, b
 			}
 		case rule.Spacing == rules.Compact:
 			spaced[i] = slices.DeleteFunc(slices.Clone(spaced[i]), yamltext.IsBlank)
+		case i == boundary && !blank:
+			spaced[i] = append([]string{""}, spaced[i]...)
 		}
 	}
 	if slices.EqualFunc(gaps, spaced, slices.Equal) {

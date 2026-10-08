@@ -49,7 +49,9 @@ blank lines and `homelab-fmt` comments matter.
   `controllers`. A named key next to it wins for that name. A sequence's first
   item stands for every item. Put `"*"` last in its mapping.
 - **Blank lines.** A blank line between two keys requires a blank line after
-  the first one. A missing blank line requires nothing.
+  the first one. A missing blank line requires nothing. Keys the template does
+  not list are separated from the listed ones by a blank line, unless the
+  mapping is `compact`.
 - **Directives** go in a comment on a key's line and apply to the mapping
   under that key:
   - `# homelab-fmt: sort` sorts the keys the template does not list.
