@@ -32,11 +32,6 @@ npm run check:values
 The formatter also accepts file paths. It skips paths that are not app-template
 values files, so Git hooks can pass every staged file.
 
-`homelab-check-sops <files...>` fails when a file that must be encrypted is
-plaintext. A file must be encrypted when its name ends in `.sops.yaml` or
-matches a `path_regex` in the repository's `.sops.yaml`. Consumers run both
-commands from their pre-commit hook.
-
 Keep the bjw-s app-template schema comment when adding a values file;
 it opts the file into formatting. Formatting does not validate Helm schemas.
 
@@ -48,7 +43,6 @@ Shared source and settings:
 
 - `lib/values-config.ts`: file discovery, ESLint key order, and layout rules.
 - `bin/format-values.ts`: command that runs ESLint followed by oxfmt.
-- `lib/sops.ts` and `bin/check-sops.ts`: plaintext secret detection.
 - `tests/`: Node test runner tests for the library functions.
 - `oxfmt.config.json`: spacing and wrapping settings.
 - `package.json`: shared tool versions.
