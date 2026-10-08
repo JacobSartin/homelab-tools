@@ -85,7 +85,7 @@ attestations, which mise verifies. Pin a release in the repository's
 
 ```toml
 [tools]
-"github:JacobSartin/homelab-tools" = "1.0.0"
+"github:JacobSartin/homelab-tools" = "0.1.0"
 ```
 
 To format on save in VS Code, keep oxfmt as the YAML formatter and run
