@@ -39,7 +39,11 @@ export function appTemplateFiles(dir: string, prefix = ""): string[] {
     .flatMap((entry) => {
       if (entry.name === ".git" || entry.name === "node_modules") return [];
       const relative = prefix + entry.name;
-      if (entry.isDirectory()) return appTemplateFiles(join(dir, entry.name), relative + "/");
+      if (entry.isDirectory()) {
+        // Nested repositories and worktrees (e.g. .claude/worktrees/*) have their own .git.
+        const child = join(dir, entry.name);
+        return existsSync(join(child, ".git")) ? [] : appTemplateFiles(child, relative + "/");
+      }
       if (!entry.isFile() || entry.name !== "values.yaml") return [];
       return isAppTemplateValues(readFileSync(join(dir, entry.name), "utf8")) ? [relative] : [];
     })

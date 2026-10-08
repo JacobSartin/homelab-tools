@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { selectAppTemplateFiles } from "../lib/values-config.ts";
+import { appTemplateFiles, selectAppTemplateFiles } from "../lib/values-config.ts";
 
 const schema =
   "# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-4.4.0/charts/other/app-template/values.schema.json\n";
@@ -31,4 +31,8 @@ test("selects only app-template values files from explicit paths", () => {
     ]),
     ["apps/a/values.yaml"],
   );
+});
+
+test("discovery skips nested repositories and worktrees", () => {
+  assert.deepEqual(appTemplateFiles(root), ["apps/a/values.yaml"]);
 });
