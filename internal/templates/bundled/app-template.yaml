@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-5.2.1/charts/other/app-template/values.schema.json
+# homelab-fmt: schema */bjw-s*/helm-charts/app-template*/values.schema.json
+# Key order for bjw-s app-template values. Values are placeholders.
+global: {}
+defaultPodOptions: {}
+controllers:
+  "*":
+    enabled: true
+    type: deployment
+    forceRename: app
+    annotations: {}
+    labels: {}
+    replicas: 1
+    strategy: RollingUpdate
+    rollingUpdate: {}
+    podDisruptionBudget: {}
+    revisionHistoryLimit: 3
+    pod:
+      annotations: {}
+      labels: {}
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+    initContainers: {}
+    containers:
+      "*":
+        image: # homelab-fmt: compact
+          repository: ghcr.io/example/app
+          tag: 1.0.0
+          pullPolicy: IfNotPresent
+
+        command: []
+        args: []
+        env: {}
+        envFrom: []
+        ports: []
+        probes: # homelab-fmt: compact
+          startup:
+            enabled: true
+            custom: true
+            spec: {}
+          readiness:
+            enabled: true
+            custom: true
+            spec: {}
+          liveness:
+            enabled: true
+            custom: true
+            spec: {}
+
+        securityContext: {}
+        resources:
+          requests: {}
+          limits: {}
+service:
+  "*": # homelab-fmt: compact
+    enabled: true
+    forceRename: app
+    controller: app
+    type: LoadBalancer
+    loadBalancerIP: 192.0.2.10
+    loadBalancerClass: example
+    loadBalancerSourceRanges: []
+    allocateLoadBalancerNodePorts: false
+    externalTrafficPolicy: Local
+    annotations: {}
+    labels: {}
+    ports: {}
+ingress: {}
+route: {}
+# One example per persistence type, so each stays valid against the schema.
+# Their key orders are merged.
+persistence: # homelab-fmt: separate
+  "*configMap": # homelab-fmt: compact
+    enabled: true
+    type: configMap
+    identifier: app
+    globalMounts: []
+
+  "*secret": # homelab-fmt: compact
+    enabled: true
+    type: secret
+    name: app
+    globalMounts: []
+
+  "*existingClaim": # homelab-fmt: compact
+    enabled: true
+    type: persistentVolumeClaim
+    existingClaim: app
+    globalMounts: []
+
+  "*persistentVolumeClaim": # homelab-fmt: compact
+    enabled: true
+    type: persistentVolumeClaim
+    storageClass: example
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    retain: true
+    globalMounts: []
+    advancedMounts: {}
+
+  "*hostPath": # homelab-fmt: compact
+    enabled: true
+    type: hostPath
+    hostPath: /data
+    globalMounts: []
+
+  "*nfs": # homelab-fmt: compact
+    enabled: true
+    type: nfs
+    server: nas.example
+    path: /data
+    globalMounts: []
+
+  "*emptyDir": # homelab-fmt: compact
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 1Gi
+    globalMounts: []
+
+configMaps: {}
+secrets: {}
+serviceAccount: {}
+rbac: {}
+rawResources: {}

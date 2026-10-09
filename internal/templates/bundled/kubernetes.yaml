@@ -1,0 +1,16 @@
+# Key order shared by every Kubernetes object. Templates for specific kinds
+# extend it. Values are placeholders.
+apiVersion: "*"
+kind: "*"
+metadata:
+  name: example
+  generateName: example-
+  namespace: default
+  labels: {} # homelab-fmt: sort
+  annotations: {} # homelab-fmt: sort
+type: Opaque
+immutable: false
+spec: {}
+data: {}
+stringData: {}
+binaryData: {}

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: modes
+data:
+  mode: 0555
+  script: |
+    #!/bin/sh
+
+    echo hi
+  folded: this plain scalar
+    continues here
+  quoted: 'single'

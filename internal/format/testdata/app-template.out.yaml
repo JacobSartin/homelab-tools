@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-4.4.0/charts/other/app-template/values.schema.json
+controllers:
+  app:
+    containers:
+      app:
+        image:
+          repository: example/app
+          tag: "1.0"
+
+        probes:
+          readiness:
+            enabled: true
+          liveness:
+            enabled: true
+
+        securityContext: {}
+        resources:
+          limits:
+            memory: 1Gi
+service:
+  app:
+    controller: app
+    ports:
+      http:
+        port: 80
+persistence:
+  config:
+    type: emptyDir
+    globalMounts:
+      - path: /config
+
+  cache:
+    type: emptyDir
