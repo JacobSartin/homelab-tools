@@ -13,12 +13,9 @@ import (
 type Spacing int
 
 const (
-	// Keep leaves blank lines as they are.
-	Keep Spacing = iota
-	// Compact removes blank lines between entries.
-	Compact
-	// Separate requires a blank line between entries.
-	Separate
+	Keep     Spacing = iota // leave spacing as-is
+	Compact                 // remove blank lines
+	Separate                // require a blank line
 )
 
 // Rule applies to the block mappings at a key path.
@@ -38,11 +35,11 @@ type Rule struct {
 	Source string
 }
 
-// Orders reports whether the rule rearranges keys.
+// reports whether the rule rearranges keys.
 func (r Rule) Orders() bool { return len(r.Order) > 0 || r.SortRest }
 
-// String summarizes what the rule does.
-func (r Rule) String() string {
+// Describes what the rule does.
+func (r Rule) Summarize() string {
 	var parts []string
 	if len(r.Order) > 0 {
 		parts = append(parts, "order "+strings.Join(r.Order, ", "))
@@ -62,7 +59,7 @@ func (r Rule) String() string {
 	return fmt.Sprintf("%s (%s)", strings.Join(parts, "; "), r.Source)
 }
 
-// Match reports whether pattern matches the key path.
+// reports whether pattern matches the key path.
 func Match(pattern string, path []string) bool {
 	var parts []string
 	if pattern != "" {
@@ -79,7 +76,7 @@ func Match(pattern string, path []string) bool {
 	return true
 }
 
-// First returns the first rule that matches the key path.
+// returns the first rule that matches the key path.
 func First(set []Rule, path []string) (Rule, bool) {
 	i := slices.IndexFunc(set, func(r Rule) bool { return Match(r.Path, path) })
 	if i < 0 {
@@ -88,7 +85,7 @@ func First(set []Rule, path []string) (Rule, bool) {
 	return set[i], true
 }
 
-// Sorted returns keys in the order the rule requires.
+// returns keys in the order the rule requires.
 func (r Rule) Sorted(keys []string) []string {
 	rank := func(key string) int {
 		if i := slices.Index(r.Order, key); i >= 0 {
@@ -106,7 +103,7 @@ func (r Rule) Sorted(keys []string) []string {
 	return sorted
 }
 
-// NaturalCompare orders strings by code point, comparing digit runs numerically.
+// orders strings by code point, comparing digit runs numerically.
 func NaturalCompare(a, b string) int {
 	x, y := chunks(a), chunks(b)
 	for i := 0; i < min(len(x), len(y)); i++ {
@@ -128,6 +125,7 @@ func NaturalCompare(a, b string) int {
 	return len(x) - len(y)
 }
 
+// splits a string into runs of digits and non-digits.
 func chunks(s string) []string {
 	var out []string
 	for len(s) > 0 {
@@ -142,4 +140,5 @@ func chunks(s string) []string {
 	return out
 }
 
+// checks if the character is a digit
 func isDigits(s string) bool { return s != "" && unicode.IsDigit(rune(s[0])) }

@@ -20,7 +20,7 @@ import (
 //   - Keys are ordered as in the template. Keys it does not list keep their
 //     relative order after the listed ones.
 //   - A "*" key stands for any key; a sequence's first item stands for every item.
-//   - A blank line between two keys requires one after the first key.
+//   - A blank line between keys will be preserved in formatting.
 //   - "# homelab-fmt: sort" on a key sorts the keys its mapping does not list,
 //     "compact" removes blank lines between its entries, and "separate"
 //     requires one between them.

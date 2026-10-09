@@ -27,7 +27,7 @@ var Default = func() *Set {
 	return set
 }()
 
-// For returns the rules for one document; documents no template matches get none.
+// For returns the rules for one document; documents with no template matches get none.
 func For(doc *yaml.Node) []rules.Rule {
 	if t := Default.Match(doc); t != nil {
 		return t.Rules
