@@ -9,7 +9,7 @@ import (
 	"unicode"
 )
 
-// Spacing sets the blank lines between the entries of a mapping.
+// blank lines between the entries of a mapping.
 type Spacing int
 
 const (
@@ -18,27 +18,20 @@ const (
 	Separate                // require a blank line
 )
 
-// Rule applies to the block mappings at a key path.
+// how to order and space the mappings found at Path.
 type Rule struct {
-	// Path is dotted; "*" matches any one key or sequence index, and "" is the
-	// document root.
-	Path string
-	// Order lists keys that move to the front, in this order.
-	Order []string
-	// SortRest sorts keys not named in Order naturally; otherwise they keep
-	// their relative order.
-	SortRest bool
-	Spacing  Spacing
-	// BlankAfter lists keys followed by a blank line when another entry comes after them.
-	BlankAfter []string
-	// Source names where the rule was declared, for explanations.
-	Source string
+	Path       string   // dotted keys; "*" matches any key or list index, "" is the root
+	Order      []string // keys moved to the front, in this order
+	SortRest   bool     // sort unlisted keys instead of keeping their order
+	Spacing    Spacing
+	BlankAfter []string // keys followed by a blank line
+	Source     string   // template file and line, shown by explain
 }
 
-// reports whether the rule rearranges keys.
-func (r Rule) Orders() bool { return len(r.Order) > 0 || r.SortRest }
+// reports whether the rule can move keys.
+func (r Rule) Reorders() bool { return len(r.Order) > 0 || r.SortRest }
 
-// Describes what the rule does.
+// describes the rule for explain output.
 func (r Rule) Summarize() string {
 	var parts []string
 	if len(r.Order) > 0 {

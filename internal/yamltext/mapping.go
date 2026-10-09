@@ -10,27 +10,23 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// Entry is one pair of a block mapping: the comment lines directly above the
-// key, the key, and everything indented under it.
+// one pair as lines: comments directly above the key, the key, and
+// everything indented under it.
 type Entry struct {
 	Key        string
 	Start, End int // inclusive line indexes
 }
 
-// Mapping is a block mapping laid out as line ranges. The lines between two
-// entries (blank lines and detached comments) are its gaps; they stay in
-// place when entries move.
+// The lines between entries (blank lines, detached comments) are gaps; they
+// stay in place when entries move.
 type Mapping struct {
 	Entries []Entry
 	Indent  int
-	// Prefix is the text before the first key on its line, such as "- " for a
-	// mapping that is a sequence item.
-	Prefix string
+	Prefix  string // text before the first key on its line, like "- " for a list item
 }
 
 var itemPrefix = regexp.MustCompile(`^[ -]*$`)
 
-// IsBlank reports whether a line has no content.
 func IsBlank(line string) bool { return strings.TrimSpace(line) == "" }
 
 func indentOf(line string) int {
@@ -42,9 +38,9 @@ func indentOf(line string) int {
 
 func isComment(line string) bool { return strings.HasPrefix(strings.TrimSpace(line), "#") }
 
-// Layout finds the line ranges of a block mapping's entries. top marks a
-// document's root mapping, whose opening comment stays on top. It reports
-// false for layouts that cannot be rearranged line by line.
+// line ranges of a block mapping's entries; false when the layout cannot be
+// rearranged line by line. top marks a document root, whose opening comment
+// stays on top.
 func Layout(lines []string, node *yaml.Node, top bool) (Mapping, bool) {
 	if node.Kind != yaml.MappingNode || node.Style&yaml.FlowStyle != 0 || len(node.Content) < 2 {
 		return Mapping{}, false
@@ -95,7 +91,6 @@ func Layout(lines []string, node *yaml.Node, top bool) (Mapping, bool) {
 	return m, true
 }
 
-// Keys returns the entries' keys in document order.
 func (m Mapping) Keys() []string {
 	keys := make([]string, len(m.Entries))
 	for i, e := range m.Entries {
@@ -104,7 +99,7 @@ func (m Mapping) Keys() []string {
 	return keys
 }
 
-// Gaps returns the lines before each entry after the first.
+// lines before each entry; the first entry has none.
 func (m Mapping) Gaps(lines []string) [][]string {
 	gaps := make([][]string, len(m.Entries))
 	for i := 1; i < len(m.Entries); i++ {
@@ -113,8 +108,7 @@ func (m Mapping) Gaps(lines []string) [][]string {
 	return gaps
 }
 
-// Render returns the mapping's lines with entries in the given key order and
-// the given gaps before each position.
+// the mapping's lines with entries in order and gaps[i] before position i.
 func (m Mapping) Render(lines []string, order []string, gaps [][]string) []string {
 	var out []string
 	for i, key := range order {
@@ -131,7 +125,7 @@ func (m Mapping) Render(lines []string, order []string, gaps [][]string) []strin
 	return out
 }
 
-// Replace returns lines with the mapping's range replaced.
+// lines with the mapping's range replaced by with.
 func (m Mapping) Replace(lines []string, with []string) []string {
 	first, last := m.Entries[0].Start, m.Entries[len(m.Entries)-1].End
 	return slices.Concat(lines[:first], with, lines[last+1:])

@@ -11,9 +11,10 @@ import (
 
 	"github.com/JacobSartin/homelab-tools/internal/files"
 	"github.com/JacobSartin/homelab-tools/internal/format"
+	"github.com/JacobSartin/homelab-tools/internal/templates"
 )
 
-// Set by the release build.
+// set by the release build.
 var version = "dev"
 
 const usage = `Usage: homelab-fmt [--check] [path...]
@@ -25,7 +26,14 @@ YAML files are skipped. Layout is left to oxfmt.
 
 explain prints the template each document matches and the rule for each mapping.
 
+Exit status: 1 when --check finds files that need formatting, 2 on errors.
+
 `
+
+const (
+	exitUnformatted = 1
+	exitError       = 2
+)
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -41,15 +49,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, usage)
 		flags.PrintDefaults()
 	}
-	check := flags.Bool("check", false, "report files that need formatting instead of writing them")
-	showVersion := flags.Bool("version", false, "print the version")
+	var checkMode, showVersion bool
+	flags.BoolVar(&checkMode, "check", false, "report files that need formatting instead of writing them")
+	flags.BoolVar(&showVersion, "version", false, "print the version")
 	if err := flags.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
 		}
-		return 2
+		return exitError
 	}
-	if *showVersion {
+	if showVersion {
 		fmt.Fprintln(stdout, version)
 		return 0
 	}
@@ -57,85 +66,65 @@ func run(args []string, stdout, stderr io.Writer) int {
 	root, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintln(stderr, err)
-		return 1
+		return exitError
 	}
 	paths := flags.Args()
-	var targets []string
-	if len(paths) > 0 {
-		targets = files.Select(root, paths)
-	} else if targets, err = files.Discover(root); err != nil {
-		fmt.Fprintf(stderr, "listing files with git: %v\n", err)
-		return 1
+	targets := files.Select(root, paths)
+	if len(paths) == 0 {
+		if targets, err = files.Discover(root); err != nil {
+			fmt.Fprintf(stderr, "listing files with git: %v\n", err)
+			return exitError
+		}
 	}
 
-	failed, changed := false, 0
+	// TODO(#2): track affected files the same way in check and write mode so
+	// both can report edit statistics.
+	errored, unformatted, changed := false, false, 0
 	for _, file := range targets {
 		full := filepath.Join(root, file)
 		data, err := os.ReadFile(full)
 		if err != nil {
 			fmt.Fprintln(stderr, err)
-			failed = true
+			errored = true
 			continue
 		}
-		text := string(data)
-		result, err := format.Format(file, text)
+		result, err := format.Format(file, string(data), templates.For)
 		if err != nil {
 			fmt.Fprintf(stderr, "%s: %v\n", file, err)
-			failed = true
+			errored = true
 			continue
 		}
 		for _, warning := range result.Warnings {
 			fmt.Fprintf(stderr, "%s: %s\n", file, warning)
 		}
-		if result.Output == text {
+		if !result.Changed {
 			continue
 		}
 		changed++
-		if *check {
+		if checkMode {
 			fmt.Fprintf(stdout, "needs formatting: %s\n", file)
-			failed = true
+			unformatted = true
 			continue
 		}
 		if err := os.WriteFile(full, []byte(result.Output), 0o644); err != nil {
 			fmt.Fprintln(stderr, err)
-			failed = true
+			errored = true
 			continue
 		}
 		fmt.Fprintf(stdout, "formatted: %s\n", file)
 	}
 	if len(paths) == 0 {
 		verb := "Formatted"
-		if *check {
+		if checkMode {
 			verb = "Checked"
 		}
 		fmt.Fprintf(stdout, "%s %d files; %d changed.\n", verb, len(targets), changed)
 	}
-	if failed {
-		return 1
-	}
-	return 0
-}
-
-func explain(paths []string, stdout, stderr io.Writer) int {
-	if len(paths) == 0 {
-		fmt.Fprint(stderr, usage)
-		return 2
-	}
-	failed := false
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err == nil {
-			var text string
-			if text, err = format.Explain(filepath.ToSlash(path), string(data)); err == nil {
-				fmt.Fprint(stdout, text)
-				continue
-			}
-		}
-		fmt.Fprintf(stderr, "%s: %v\n", path, err)
-		failed = true
-	}
-	if failed {
-		return 1
+	switch {
+	case errored:
+		return exitError
+	case unformatted:
+		return exitUnformatted
 	}
 	return 0
 }

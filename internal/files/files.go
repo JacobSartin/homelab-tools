@@ -12,10 +12,10 @@ import (
 
 var yamlFile = regexp.MustCompile(`\.ya?ml$`)
 
-// Discover lists tracked and untracked, non-ignored YAML files under root.
-// Git leaves out nested repositories and worktrees.
+// tracked and untracked, non-ignored YAML files under root. Git leaves out
+// nested repositories and worktrees.
 //
-// TODO: Discover should not fail when root is outside a Git repository.
+// TODO(#3): do not require Git.
 func Discover(root string) ([]string, error) {
 	cmd := exec.Command("git", "ls-files", "--cached", "--others", "--exclude-standard", "-z",
 		"--", "*.yaml", "*.yml")
@@ -34,8 +34,8 @@ func Discover(root string) ([]string, error) {
 	return slices.Compact(found), nil
 }
 
-// Select narrows explicit paths (absolute or relative to root) to existing
-// YAML files inside root, so hooks and editors can pass any file.
+// existing YAML files inside root among paths (absolute or relative to
+// root), so hooks and editors can pass any file.
 func Select(root string, paths []string) []string {
 	var found []string
 	for _, path := range paths {

@@ -20,7 +20,10 @@ spec:
   suspend: false
   targetNamespace: example
   serviceAccountName: example
-  decryption: {}
+  decryption:
+    provider: sops
+    secretRef:
+      name: example
   postBuild: {}
   components: []
   patches: []

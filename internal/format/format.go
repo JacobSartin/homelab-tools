@@ -1,9 +1,8 @@
 // Package format applies key-order and blank-line rules to YAML text.
 //
-// Rules move whole lines, the way an editor would: comments travel with the
-// key below them, blank lines stay where they were, and scalars, quoting and
-// indentation are never re-printed. Layout (indentation, wrapping, quotes)
-// is left to oxfmt.
+// Edits move whole lines: comments travel with the key below them, blank
+// lines stay where they were, and scalars, quoting and indentation are never
+// re-printed. Layout is left to oxfmt.
 package format
 
 import (
@@ -18,35 +17,29 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/JacobSartin/homelab-tools/internal/profiles"
 	"github.com/JacobSartin/homelab-tools/internal/rules"
 	"github.com/JacobSartin/homelab-tools/internal/yamltext"
 )
 
-// Result is a formatted file.
 type Result struct {
 	Output   string
+	Changed  bool
 	Warnings []string
 }
 
+// picks the rules for one document.
+type RulesFor func(doc *yaml.Node) []rules.Rule
+
 var sopsKey = regexp.MustCompile(`(?m)^sops:\s*$`)
 
-// IsSOPS reports whether a file is SOPS-encrypted; such files are never
-// rewritten because their MAC covers the document structure.
+// SOPS files are never rewritten: their MAC covers the document structure.
 func IsSOPS(path, text string) bool {
 	return strings.Contains(filepath.Base(path), ".sops.") || sopsKey.MatchString(text)
 }
 
-// RulesFor picks the rules for one document.
-type RulesFor func(doc *yaml.Node) []rules.Rule
-
-// Format applies the template rules to every document of a YAML file. It
-// fails rather than return output that parses to different data.
-func Format(path, text string) (Result, error) {
-	return formatWith(path, text, profiles.For)
-}
-
-func formatWith(path, text string, rulesFor RulesFor) (Result, error) {
+// applies rulesFor's rules to every document. Fails rather than return output
+// that parses to different data.
+func Format(path, text string, rulesFor RulesFor) (Result, error) {
 	if IsSOPS(path, text) {
 		return Result{Output: text}, nil
 	}
@@ -56,7 +49,7 @@ func formatWith(path, text string, rulesFor RulesFor) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	var warnings []string
+	result := Result{}
 	blocked := map[string]bool{}
 	// Each pass fixes the first mapping that breaks a rule and re-parses, so
 	// line numbers are always current.
@@ -78,11 +71,12 @@ func formatWith(path, text string, rulesFor RulesFor) (Result, error) {
 			}
 			// Reordering moved an alias above its anchor.
 			blocked[next.mapping] = true
-			warnings = append(warnings,
+			result.Warnings = append(result.Warnings,
 				next.path+": left unsorted because an alias would come before its anchor")
 			continue
 		}
 		src = next.text
+		result.Changed = true
 	}
 	after, err := decode(src)
 	if err != nil || !reflect.DeepEqual(before, after) {
@@ -91,7 +85,8 @@ func formatWith(path, text string, rulesFor RulesFor) (Result, error) {
 	if crlf {
 		src = strings.ReplaceAll(src, "\n", "\r\n")
 	}
-	return Result{Output: src, Warnings: warnings}, nil
+	result.Output = src
+	return result, nil
 }
 
 func parse(text string) ([]*yaml.Node, error) {
@@ -122,7 +117,7 @@ func decode(text string) ([]any, error) {
 	}
 }
 
-// walk calls fn for every mapping under node, parents before children.
+// calls fn for every mapping under node, parents first; stops when fn returns true.
 func walk(node *yaml.Node, path []string, fn func(node *yaml.Node, path []string) bool) bool {
 	switch node.Kind {
 	case yaml.MappingNode:
@@ -152,10 +147,9 @@ func pathName(path []string) string {
 }
 
 type edit struct {
-	text string
-	path string
-	// mapping identifies the edited mapping as document index and key path.
-	mapping string
+	text    string
+	path    string
+	mapping string // document index and key path
 	moves   bool
 }
 
@@ -184,7 +178,7 @@ func nextEdit(text string, docs []*yaml.Node, rulesFor RulesFor, blocked map[str
 	return edit{}, false
 }
 
-// fix returns the edit that makes one mapping follow its rule, if it needs one.
+// the edit that makes one mapping follow its rule, if it needs one.
 func fix(lines []string, node *yaml.Node, path []string, rule rules.Rule, top, blocked bool) (edit, bool) {
 	m, ok := yamltext.Layout(lines, node, top)
 	if !ok {
@@ -192,7 +186,7 @@ func fix(lines []string, node *yaml.Node, path []string, rule rules.Rule, top, b
 	}
 	keys := m.Keys()
 	gaps := m.Gaps(lines)
-	if rule.Orders() && !blocked {
+	if rule.Reorders() && !blocked {
 		if sorted := rule.Sorted(keys); !slices.Equal(sorted, keys) {
 			text := strings.Join(m.Replace(lines, m.Render(lines, sorted, gaps)), "\n")
 			return edit{text: text, path: pathName(path), moves: true}, true
@@ -225,33 +219,4 @@ func fix(lines []string, node *yaml.Node, path []string, rule rules.Rule, top, b
 	}
 	text := strings.Join(m.Replace(lines, m.Render(lines, keys, spaced)), "\n")
 	return edit{text: text, path: pathName(path)}, true
-}
-
-// Explain describes which template each document of a file matches and the
-// rule that applies to each of its mappings.
-func Explain(path, text string) (string, error) {
-	if IsSOPS(path, text) {
-		return path + ": SOPS file, never formatted\n", nil
-	}
-	docs, err := parse(strings.ReplaceAll(text, "\r\n", "\n"))
-	if err != nil {
-		return "", err
-	}
-	var b strings.Builder
-	for d, doc := range docs {
-		b.WriteString(path + ", document " + strconv.Itoa(d+1) + ": ")
-		t := profiles.Default.Match(doc)
-		if t == nil || len(doc.Content) == 0 {
-			b.WriteString("no template matches; left as is\n")
-			continue
-		}
-		b.WriteString("template " + strings.Join(t.Chain, " extends ") + "\n")
-		walk(doc.Content[0], nil, func(_ *yaml.Node, keys []string) bool {
-			if rule, ok := rules.First(t.Rules, keys); ok {
-				b.WriteString("  " + pathName(keys) + ": " + rule.Summarize() + "\n")
-			}
-			return false
-		})
-	}
-	return b.String(), nil
 }

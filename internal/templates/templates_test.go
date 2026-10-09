@@ -1,4 +1,4 @@
-package profiles
+package templates
 
 import (
 	"slices"
@@ -166,5 +166,34 @@ func TestLoadErrors(t *testing.T) {
 		if _, err := load(files); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("want error containing %q, got %v", want, err)
 		}
+	}
+}
+
+// Every bundled template must load and select documents like itself.
+func TestBundledTemplates(t *testing.T) {
+	for _, tmpl := range Default.Templates() {
+		if got := Default.Match(parseDoc(t, tmpl.Text)); got != tmpl {
+			t.Errorf("%s matches template %v", tmpl.Name, got)
+		}
+	}
+}
+
+func TestWildcardVariantsMergeTheirOrders(t *testing.T) {
+	set := mustLoad(t, map[string]string{"t.yaml": `apiVersion: v1
+kind: List
+volumes:
+  "*claim":
+    type: pvc
+    claim: x
+    mounts: []
+  "*nfs":
+    type: nfs
+    server: x
+    path: x
+    mounts: []
+`})
+	want := []string{"type", "claim", "server", "path", "mounts"}
+	if got := ruleAt(t, set.Templates()[0], "volumes.*").Order; !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }

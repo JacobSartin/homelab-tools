@@ -10,8 +10,8 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/JacobSartin/homelab-tools/internal/profiles"
 	"github.com/JacobSartin/homelab-tools/internal/rules"
+	"github.com/JacobSartin/homelab-tools/internal/templates"
 	"github.com/JacobSartin/homelab-tools/internal/yamltext"
 )
 
@@ -49,7 +49,7 @@ func read(t *testing.T, path string) string {
 
 func format(t *testing.T, path, text string) string {
 	t.Helper()
-	result, err := Format(path, text)
+	result, err := Format(path, text, templates.For)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestRules(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := formatWith("x.yaml", tc.in, with(tc.rules...))
+			result, err := Format("x.yaml", tc.in, with(tc.rules...))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -138,7 +138,7 @@ func TestRules(t *testing.T) {
 
 func TestAliasBeforeAnchorIsLeftUnsorted(t *testing.T) {
 	in := "service:\n  port: &port 80\ncontrollers:\n  port: *port\n"
-	result, err := formatWith("x.yaml", in, with(rules.Rule{Path: "", Order: []string{"controllers"}}))
+	result, err := Format("x.yaml", in, with(rules.Rule{Path: "", Order: []string{"controllers"}}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestSOPSFilesAreNeverRewritten(t *testing.T) {
 }
 
 func TestInvalidYAMLIsAnError(t *testing.T) {
-	if _, err := Format("x.yaml", "a: [\n"); err == nil {
+	if _, err := Format("x.yaml", "a: [\n", templates.For); err == nil {
 		t.Error("expected an error")
 	}
 }
@@ -169,7 +169,7 @@ func TestInvalidYAMLIsAnError(t *testing.T) {
 // Every template must already follow its own rules, and must be restored
 // after every mapping in it is reversed.
 func TestTemplatesFormatToThemselves(t *testing.T) {
-	for _, tmpl := range profiles.Default.Templates() {
+	for _, tmpl := range templates.Default.Templates() {
 		t.Run(tmpl.Name, func(t *testing.T) {
 			if got := format(t, tmpl.Name, tmpl.Text); got != tmpl.Text {
 				t.Errorf("template is not in its own order:\n%s", got)
@@ -204,10 +204,11 @@ func reverseMappings(t *testing.T, text string) string {
 				}
 				done[id] = true
 				m, ok := yamltext.Layout(lines, node, node == doc.Content[0])
-				if !ok {
+				keys := m.Keys()
+				// Wildcard examples have no order of their own.
+				if !ok || slices.ContainsFunc(keys, func(k string) bool { return strings.HasPrefix(k, "*") }) {
 					return false
 				}
-				keys := m.Keys()
 				slices.Reverse(keys)
 				text = strings.Join(m.Replace(lines, m.Render(lines, keys, m.Gaps(lines))), "\n")
 				return true
@@ -225,7 +226,7 @@ func reverseMappings(t *testing.T, text string) string {
 func TestExplain(t *testing.T) {
 	in := "apiVersion: helm.toolkit.fluxcd.io/v2\nkind: HelmRelease\nmetadata:\n  name: x\n" +
 		"---\nfoo: bar\n"
-	got, err := Explain("x.yaml", in)
+	got, err := Explain("x.yaml", in, templates.Default)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,6 +237,19 @@ func TestExplain(t *testing.T) {
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestChangedReportsEdits(t *testing.T) {
+	set := with(rules.Rule{Path: "", Order: []string{"a"}})
+	for in, want := range map[string]bool{"a: 1\n\nb: 2\n": false, "b: 2\na: 1\n": true} {
+		result, err := Format("x.yaml", in, set)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Changed != want {
+			t.Errorf("%q: Changed = %v", in, result.Changed)
 		}
 	}
 }

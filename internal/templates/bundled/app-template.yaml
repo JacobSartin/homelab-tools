@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-4.4.0/charts/other/app-template/values.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-5.2.1/charts/other/app-template/values.schema.json
 # homelab-fmt: schema */bjw-s*/helm-charts/app-template*/values.schema.json
 # Key order for bjw-s app-template values. Values are placeholders.
 global: {}
@@ -18,7 +18,6 @@ controllers:
     pod:
       annotations: {}
       labels: {}
-      serviceAccountName: app
       nodeSelector: {}
       affinity: {}
       tolerations: []
@@ -38,10 +37,15 @@ controllers:
         envFrom: []
         ports: []
         probes: # homelab-fmt: compact
-          startup: {}
-          readiness: {}
-          liveness: {}
-          "*":
+          startup:
+            enabled: true
+            custom: true
+            spec: {}
+          readiness:
+            enabled: true
+            custom: true
+            spec: {}
+          liveness:
             enabled: true
             custom: true
             spec: {}
@@ -55,7 +59,7 @@ service:
     enabled: true
     forceRename: app
     controller: app
-    type: ClusterIP
+    type: LoadBalancer
     loadBalancerIP: 192.0.2.10
     loadBalancerClass: example
     loadBalancerSourceRanges: []
@@ -66,24 +70,56 @@ service:
     ports: {}
 ingress: {}
 route: {}
+# One example per persistence type, so each stays valid against the schema.
+# Their key orders are merged.
 persistence: # homelab-fmt: separate
-  "*": # homelab-fmt: compact
+  "*configMap": # homelab-fmt: compact
+    enabled: true
+    type: configMap
+    identifier: app
+    globalMounts: []
+
+  "*secret": # homelab-fmt: compact
+    enabled: true
+    type: secret
+    name: app
+    globalMounts: []
+
+  "*existingClaim": # homelab-fmt: compact
     enabled: true
     type: persistentVolumeClaim
-    identifier: app
-    name: app
     existingClaim: app
+    globalMounts: []
+
+  "*persistentVolumeClaim": # homelab-fmt: compact
+    enabled: true
+    type: persistentVolumeClaim
     storageClass: example
     accessMode: ReadWriteOnce
     size: 1Gi
     retain: true
+    globalMounts: []
+    advancedMounts: {}
+
+  "*hostPath": # homelab-fmt: compact
+    enabled: true
+    type: hostPath
     hostPath: /data
+    globalMounts: []
+
+  "*nfs": # homelab-fmt: compact
+    enabled: true
+    type: nfs
     server: nas.example
     path: /data
+    globalMounts: []
+
+  "*emptyDir": # homelab-fmt: compact
+    enabled: true
+    type: emptyDir
     medium: Memory
     sizeLimit: 1Gi
     globalMounts: []
-    advancedMounts: {}
 
 configMaps: {}
 secrets: {}

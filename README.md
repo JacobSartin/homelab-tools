@@ -5,16 +5,16 @@ consistent key order and blank-line layout. It is a single static binary with
 no runtime. Indentation, wrapping and quoting are left to
 [oxfmt](https://oxc.rs/docs/guide/usage/formatter) in the editor.
 
-The order comes from [templates](internal/profiles/templates): example
+The order comes from [templates](internal/templates/bundled): example
 documents laid out the way formatted files should look.
 
 | Template | Formats |
 | --- | --- |
-| [`app-template.yaml`](internal/profiles/templates/app-template.yaml) | bjw-s app-template values |
-| [`kubernetes.yaml`](internal/profiles/templates/kubernetes.yaml) | top-level fields and `metadata` of every Kubernetes object |
-| [`helm-release.yaml`](internal/profiles/templates/helm-release.yaml) | Flux `HelmRelease` |
-| [`flux-kustomization.yaml`](internal/profiles/templates/flux-kustomization.yaml) | Flux `Kustomization` |
-| [`kustomization.yaml`](internal/profiles/templates/kustomization.yaml), [`kustomize-component.yaml`](internal/profiles/templates/kustomize-component.yaml) | kustomize `Kustomization` and `Component` |
+| [`app-template.yaml`](internal/templates/bundled/app-template.yaml) | bjw-s app-template values |
+| [`kubernetes.yaml`](internal/templates/bundled/kubernetes.yaml) | top-level fields and `metadata` of every Kubernetes object |
+| [`helm-release.yaml`](internal/templates/bundled/helm-release.yaml) | Flux `HelmRelease` |
+| [`flux-kustomization.yaml`](internal/templates/bundled/flux-kustomization.yaml) | Flux `Kustomization` |
+| [`kustomization.yaml`](internal/templates/bundled/kustomization.yaml), [`kustomize-component.yaml`](internal/templates/bundled/kustomize-component.yaml) | kustomize `Kustomization` and `Component` |
 
 How it edits:
 
@@ -33,10 +33,13 @@ How it edits:
 
 ```sh
 homelab-fmt                      # format every YAML file Git does not ignore
-homelab-fmt --check              # list files that need formatting; exit 1 if any
+homelab-fmt --check              # list files that need formatting
 homelab-fmt a.yaml b.md          # format only these; non-YAML paths are skipped
 homelab-fmt explain a.yaml       # show the template and rule for each mapping
 ```
+
+The exit status is 1 when `--check` finds files that need formatting and 2 on
+errors.
 
 ## Templates
 
@@ -46,8 +49,13 @@ blank lines and `homelab-fmt` comments matter.
 - **Order.** Keys are ordered as in the template. Keys it does not list keep
   their relative order after the listed ones.
 - **Wildcards.** A `"*"` key stands for any key, such as each controller under
-  `controllers`. A named key next to it wins for that name. A sequence's first
-  item stands for every item. Put `"*"` last in its mapping.
+  `controllers`. A named key next to it wins for that name. In a list, the
+  first item describes every item. Put `"*"` last in its mapping.
+- **Wildcard examples.** Keys starting with `*`, such as `"*nfs"` and
+  `"*emptyDir"`, are wildcards too. Use several when one example cannot stay
+  valid against the schema, as with app-template persistence types. Their
+  orders are merged: a key from a later example goes right before the next key
+  the examples share.
 - **Blank lines.** A blank line between two keys requires a blank line after
   the first one. A missing blank line requires nothing. Keys the template does
   not list are separated from the listed ones by a blank line, unless the
@@ -74,8 +82,10 @@ Header comments, above the first key, select documents and layer templates:
   keys the child does not list.
 
 To change the order, edit the template. To support a new kind, add a template,
-usually extending `kubernetes.yaml`. Tests check that every template formats
-to itself and is restored after its mappings are shuffled.
+usually extending `kubernetes.yaml`. Keep templates valid against their
+schema, with a `yaml-language-server` modeline where one exists. Tests check
+that every template loads, selects itself, formats to itself and is restored
+after its mappings are shuffled.
 
 ## Installing in a consumer repository
 
@@ -102,8 +112,8 @@ extension. VS Code must see mise's shims on `PATH`.
 ## Layout
 
 - [`cmd/homelab-fmt`](cmd/homelab-fmt): command-line interface.
-- [`internal/profiles`](internal/profiles): loads the embedded templates,
-  compiles them to rules and picks one per document.
+- [`internal/templates`](internal/templates): loads the bundled templates,
+  compiles them to rules, layers `extends` chains and picks one per document.
 - [`internal/format`](internal/format): `Format` and `Explain`; fixture pairs
   in `testdata/<name>.in.yaml` / `<name>.out.yaml`.
 - [`internal/rules`](internal/rules): the rule model (path, order, spacing),

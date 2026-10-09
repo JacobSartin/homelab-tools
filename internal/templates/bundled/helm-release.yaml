@@ -16,7 +16,10 @@ spec:
         name: example
         namespace: flux-system
       interval: 15m
-  chartRef: {}
+  chartRef:
+    kind: OCIRepository
+    name: example
+    namespace: flux-system
   releaseName: example
   targetNamespace: example
   storageNamespace: example
