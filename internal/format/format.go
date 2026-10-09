@@ -248,7 +248,7 @@ func Explain(path, text string) (string, error) {
 		b.WriteString("template " + strings.Join(t.Chain, " extends ") + "\n")
 		walk(doc.Content[0], nil, func(_ *yaml.Node, keys []string) bool {
 			if rule, ok := rules.First(t.Rules, keys); ok {
-				b.WriteString("  " + pathName(keys) + ": " + rule.String() + "\n")
+				b.WriteString("  " + pathName(keys) + ": " + rule.Summarize() + "\n")
 			}
 			return false
 		})
