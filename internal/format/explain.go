@@ -1,7 +1,7 @@
 package format
 
 import (
-	"strconv"
+	"fmt"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -21,16 +21,16 @@ func Explain(path, text string, set *templates.Set) (string, error) {
 	}
 	var b strings.Builder
 	for d, doc := range docs {
-		b.WriteString(path + ", document " + strconv.Itoa(d+1) + ": ")
+		fmt.Fprintf(&b, "%s, document %d: ", path, d+1)
 		t := set.Match(doc)
 		if t == nil || len(doc.Content) == 0 {
 			b.WriteString("no template matches; left as is\n")
 			continue
 		}
-		b.WriteString("template " + strings.Join(t.Chain, " extends ") + "\n")
+		fmt.Fprintf(&b, "template %s\n", strings.Join(t.Chain, " extends "))
 		walk(doc.Content[0], nil, func(_ *yaml.Node, keys []string) bool {
 			if rule, ok := rules.First(t.Rules, keys); ok {
-				b.WriteString("  " + pathName(keys) + ": " + rule.Summarize() + "\n")
+				fmt.Fprintf(&b, "  %s: %s\n", pathName(keys), rule.Summarize())
 			}
 			return false
 		})
