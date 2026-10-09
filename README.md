@@ -38,8 +38,12 @@ homelab-fmt a.yaml b.md          # format only these; non-YAML paths are skipped
 homelab-fmt explain a.yaml       # show the template and rule for each mapping
 ```
 
-The exit status is 1 when `--check` finds files that need formatting and 2 on
-errors.
+| Exit status | Meaning |
+| --- | --- |
+| 0 | Done; with `--check`, nothing needs formatting |
+| 1 | `--check` found files that need formatting |
+| 2 | Usage error: unknown flag, or `explain` without paths |
+| 3 | Runtime error: a file could not be listed, read or written, is not valid YAML, or would change meaning. Wins over 1. |
 
 ## Templates
 

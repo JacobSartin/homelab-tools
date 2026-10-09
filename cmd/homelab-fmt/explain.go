@@ -14,12 +14,12 @@ import (
 func explain(paths []string, stdout, stderr io.Writer) int {
 	if len(paths) == 0 {
 		fmt.Fprint(stderr, usage)
-		return exitError
+		return exitUsage
 	}
 	root, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintln(stderr, err)
-		return exitError
+		return exitRuntime
 	}
 	errored := false
 	for _, file := range files.Select(root, paths) {
@@ -38,7 +38,7 @@ func explain(paths []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, text)
 	}
 	if errored {
-		return exitError
+		return exitRuntime
 	}
-	return 0
+	return exitOK
 }

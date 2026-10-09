@@ -26,13 +26,18 @@ YAML files are skipped. Layout is left to oxfmt.
 
 explain prints the template each document matches and the rule for each mapping.
 
-Exit status: 1 when --check finds files that need formatting, 2 on errors.
+Exit status: 0 done, 1 --check found files that need formatting, 2 usage
+error, 3 runtime error (listing, reading or writing files, invalid YAML, or
+an edit that would change the data). A runtime error wins over 1.
 
 `
 
+// Each code names one outcome, so scripts can tell them apart.
 const (
-	exitUnformatted = 1
-	exitError       = 2
+	exitOK          = 0
+	exitUnformatted = 1 // --check found files that need formatting
+	exitUsage       = 2 // bad flags or arguments
+	exitRuntime     = 3 // a file could not be listed, read, formatted or written
 )
 
 func main() {
@@ -54,26 +59,26 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags.BoolVar(&showVersion, "version", false, "print the version")
 	if err := flags.Parse(args); err != nil {
 		if err == flag.ErrHelp {
-			return 0
+			return exitOK
 		}
-		return exitError
+		return exitUsage
 	}
 	if showVersion {
 		fmt.Fprintln(stdout, version)
-		return 0
+		return exitOK
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintln(stderr, err)
-		return exitError
+		return exitRuntime
 	}
 	paths := flags.Args()
 	targets := files.Select(root, paths)
 	if len(paths) == 0 {
 		if targets, err = files.Discover(root); err != nil {
 			fmt.Fprintf(stderr, "listing files with git: %v\n", err)
-			return exitError
+			return exitRuntime
 		}
 	}
 
@@ -101,6 +106,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 			continue
 		}
 		changed++
+		// Not an error: check mode reports through the exit status that files
+		// need formatting, so hooks and scripts can act on it.
 		if checkMode {
 			fmt.Fprintf(stdout, "needs formatting: %s\n", file)
 			unformatted = true
@@ -122,9 +129,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	switch {
 	case errored:
-		return exitError
+		return exitRuntime
 	case unformatted:
 		return exitUnformatted
 	}
-	return 0
+	return exitOK
 }
