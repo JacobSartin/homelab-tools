@@ -14,6 +14,8 @@ var yamlFile = regexp.MustCompile(`\.ya?ml$`)
 
 // Discover lists tracked and untracked, non-ignored YAML files under root.
 // Git leaves out nested repositories and worktrees.
+//
+// TODO: Discover should not fail when root is outside a Git repository.
 func Discover(root string) ([]string, error) {
 	cmd := exec.Command("git", "ls-files", "--cached", "--others", "--exclude-standard", "-z",
 		"--", "*.yaml", "*.yml")
